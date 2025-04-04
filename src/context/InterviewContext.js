@@ -1,56 +1,61 @@
-import React, { createContext, useContext, useReducer } from 'react';
+import React, { createContext, useReducer, useContext } from 'react';
 
-// Initial state
+// Default initial state
 const initialState = {
   currentProblem: null,
-  interviewMessages: [],
   currentCode: '',
-  interviewStatus: 'not_started', // not_started, in_progress, completed
+  messages: [], // Ensure this is initialized as an empty array
+  interviewStatus: 'not_started', // 'not_started', 'in_progress', 'completed'
+  testResults: null // Store code execution results
 };
 
-// Action types
-const SET_PROBLEM = 'SET_PROBLEM';
-const ADD_MESSAGE = 'ADD_MESSAGE';
-const UPDATE_CODE = 'UPDATE_CODE';
-const UPDATE_INTERVIEW_STATUS = 'UPDATE_INTERVIEW_STATUS';
+// Create the context
+const InterviewContext = createContext();
 
-// Reducer
-function interviewReducer(state, action) {
+// Reducer function
+const interviewReducer = (state, action) => {
   switch (action.type) {
     case 'SET_PROBLEM':
-      return { 
-        ...state, 
-        currentProblem: action.payload,
-        currentCode: '' // Reset code when problem changes
+      return {
+        ...state,
+        currentProblem: action.payload
+      };
+    case 'UPDATE_CODE':
+      return {
+        ...state,
+        currentCode: action.payload
+      };
+    case 'ADD_MESSAGE':
+      return {
+        ...state,
+        messages: [...state.messages, action.payload]
+      };
+    case 'UPDATE_INTERVIEW_STATUS':
+      return {
+        ...state,
+        interviewStatus: action.payload
       };
     case 'RESET_MESSAGES':
       return {
         ...state,
-        interviewMessages: []
+        messages: []
+      };
+    case 'SET_TEST_RESULTS':
+      return {
+        ...state,
+        testResults: action.payload
       };
     case 'RESET_STATE':
       return initialState;
-    case ADD_MESSAGE:
-      return { 
-        ...state, 
-        interviewMessages: [...state.interviewMessages, action.payload] 
-      };
-    case UPDATE_CODE:
-      return { ...state, currentCode: action.payload };
-    case UPDATE_INTERVIEW_STATUS:
-      return { ...state, interviewStatus: action.payload };
     default:
       return state;
   }
-}
+};
 
-// Context
-const InterviewContext = createContext();
-
-// Provider Component
+// Context provider
 export const InterviewProvider = ({ children }) => {
   const [state, dispatch] = useReducer(interviewReducer, initialState);
-
+  
   return (
     <InterviewContext.Provider value={{ state, dispatch }}>
       {children}
@@ -58,7 +63,7 @@ export const InterviewProvider = ({ children }) => {
   );
 };
 
-// Custom hook
+// Custom hook to use the context
 export const useInterview = () => {
   const context = useContext(InterviewContext);
   if (!context) {
