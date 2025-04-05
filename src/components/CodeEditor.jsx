@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { useInterview } from '../context/InterviewContext';
 import { getProblemById } from '../services/problemService';
+import { analyzeCode } from '../utils/codeAnalyzer';
 
 const SUPPORTED_LANGUAGES = {
   cpp: { name: 'C++', monacoId: 'cpp', fileExt: '.cpp' },
@@ -14,6 +15,7 @@ const CodeEditor = () => {
   const [language, setLanguage] = useState('java'); // Default language
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState(null);
+  const [codeAnalysis, setCodeAnalysis] = useState(null);
   const [error, setError] = useState(null);
   const [statusMessage, setStatusMessage] = useState('');
   
@@ -34,7 +36,7 @@ const CodeEditor = () => {
   };
   
   const executeCode = async () => {
-    if (!state.currentCode || !state.currentProblem) return;
+    if (!state.currentProblem) return;
     
     setIsRunning(true);
     setResults(null);
@@ -49,14 +51,29 @@ const CodeEditor = () => {
         throw new Error('No test cases available for this problem');
       }
       
-      // Mock execution with simulated results
-      const testResults = await simulateCodeExecution(state.currentCode, language, problem);
+      // Analyze the code for specific patterns and issues
+      const analysis = analyzeCode(state.currentCode, problem.id, language);
+      setCodeAnalysis(analysis);
+      
+      // Mock execution with simulated results based on analysis
+      const testResults = await simulateCodeExecution(
+        state.currentCode, 
+        language, 
+        problem, 
+        analysis
+      );
       
       // Share test results with the interview context
-      dispatch({ type: 'SET_TEST_RESULTS', payload: testResults });
+      dispatch({ 
+        type: 'SET_TEST_RESULTS', 
+        payload: {
+          ...testResults,
+          analysis: analysis
+        }
+      });
       
       // Add a message about the code results to the chat
-      const resultSummary = getResultSummary(testResults);
+      const resultSummary = getResultSummary(testResults, analysis);
       dispatch({
         type: 'ADD_MESSAGE',
         payload: {
@@ -73,60 +90,74 @@ const CodeEditor = () => {
     }
   };
   
-  const getResultSummary = (results) => {
+  const getResultSummary = (results, analysis) => {
     if (!results) return "No results available.";
+    
+    if (analysis.isEmpty) {
+      return "No tests passed. I haven't implemented a real solution yet.";
+    }
     
     const { summary } = results;
     
+    const complexityInfo = analysis.timeComplexity ? 
+      ` My solution has ${analysis.timeComplexity} time complexity.` : '';
+    
     if (summary.success) {
-      return `All ${summary.totalTests} tests passed successfully! The solution appears to be correct.`;
+      return `All ${summary.totalTests} tests passed.${complexityInfo}`;
     } else {
-      return `${summary.passing} out of ${summary.totalTests} tests passed. There are still ${summary.failing} failing tests.`;
+      return `${summary.passing} out of ${summary.totalTests} tests passed.${complexityInfo}`;
     }
   };
   
-  const simulateCodeExecution = async (code, lang, problem) => {
+  const simulateCodeExecution = async (code, lang, problem, analysis) => {
     return new Promise((resolve) => {
       // Simulate network request
       setTimeout(() => {
-        // Simple logic to check if code looks reasonable
+        // For empty code, all tests fail
+        if (analysis.isEmpty) {
+          const failingTestCases = problem.testCases.map((testCase, index) => ({
+            id: index,
+            input: JSON.stringify(testCase.input),
+            expectedOutput: JSON.stringify(testCase.expectedOutput),
+            actualOutput: "null",
+            status: 'FAIL'
+          }));
+          
+          const emptyResults = {
+            summary: {
+              totalTests: problem.testCases.length,
+              passing: 0,
+              failing: problem.testCases.length,
+              success: false,
+              isEmpty: true
+            },
+            passingTests: [],
+            failingTests: failingTestCases,
+            codeSnippet: code,
+            problemId: problem.id,
+            timestamp: new Date().getTime()
+          };
+          
+          setResults(emptyResults);
+          setStatusMessage(`0/${problem.testCases.length} tests passed. Implement a solution first.`);
+          
+          resolve(emptyResults);
+          return;
+        }
+        
+        // Determine test results based on code analysis
         const passingTestCases = [];
         const failingTestCases = [];
         
-        // Check for key patterns in code based on problem
-        let passMinimumCheck = false;
-        
-        if (problem.id === 'two-sum') {
-          // Check for HashMap/Map usage for Two Sum problem
-          passMinimumCheck = code.includes('return') && 
-                             (code.includes('Map') || code.includes('HashMap') || code.includes('map')) &&
-                             (code.includes('target') || code.includes('nums'));
-        } else if (problem.id === 'palindrome-number') {
-          passMinimumCheck = code.includes('return') && 
-                             (code.includes('str(') || code.includes('String') || 
-                              code.includes('reverse') || code.includes('for'));
-        } else if (problem.id === 'longest-substring') {
-          passMinimumCheck = code.includes('return') && 
-                             (code.includes('set(') || code.includes('Set') || 
-                              code.includes('map') || code.includes('Map') ||
-                              code.includes('for') || code.includes('while'));
-        } else {
-          passMinimumCheck = code.includes('return') && code.length > 50;
-        }
-        
-        // If code uses nested loops for two-sum, it will fail some test cases
-        const usesNestedLoops = (problem.id === 'two-sum') && 
-                               code.includes('for') && 
-                               code.split('for').length > 2 &&
-                               !code.includes('Map') && 
-                               !code.includes('HashMap');
-        
-        // Process each test case
+        // Determine test cases that should pass or fail based on analysis
         problem.testCases.forEach((testCase, index) => {
-          // Decide if test passes based on code quality
-          // For two-sum: If using nested loops, make it fail at least one test
-          const testPasses = passMinimumCheck && 
-                            !(usesNestedLoops && index === problem.testCases.length - 1);
+          // For optimal solutions, all tests should pass
+          // For suboptimal solutions, some tests should fail
+          const testPasses = analysis.usesOptimalApproach || 
+                           // For Two Sum, non-optimal solution may pass some tests
+                           (problem.id === 'two-sum' && !analysis.hasNestedLoops) ||
+                           // Random success based on code quality
+                           (Math.random() > (analysis.specificIssues.length * 0.2));
           
           const testCaseResult = {
             id: index,
@@ -152,14 +183,22 @@ const CodeEditor = () => {
             passing: passingTestCases.length,
             failing: failingTestCases.length,
             success: passingTestCases.length === problem.testCases.length,
-            usesOptimalSolution: (problem.id === 'two-sum') ? 
-                                code.includes('Map') || code.includes('HashMap') : true
+            usesOptimalSolution: analysis.usesOptimalApproach,
+            isEmpty: false
           },
           passingTests: passingTestCases,
           failingTests: failingTestCases,
-          codeSnippet: code.length > 100 ? code.substring(0, 100) + '...' : code,
+          codeSnippet: code,
           problemId: problem.id,
-          timestamp: new Date().getTime() // Add timestamp to ensure it's treated as a new result
+          timestamp: new Date().getTime(),
+          analysis: {
+            timeComplexity: analysis.timeComplexity,
+            spaceComplexity: analysis.spaceComplexity,
+            hasNestedLoops: analysis.hasNestedLoops,
+            usesHashMap: analysis.usesHashMap,
+            specificIssues: analysis.specificIssues,
+            feedback: analysis.feedback
+          }
         };
         
         setResults(finalResults);
@@ -246,11 +285,13 @@ const CodeEditor = () => {
       
       {/* Results section - Only show when there are results */}
       {(results || error || (statusMessage && statusMessage !== 'Running your code...')) && (
-        <div className="border-t border-gray-200 p-2 max-h-40 overflow-y-auto bg-gray-50">
+        <div className="border-t border-gray-200 p-2 max-h-48 overflow-y-auto bg-gray-50">
           {statusMessage && statusMessage !== 'Running your code...' && (
             <div className={`mb-2 px-3 py-1 rounded ${
               results?.summary?.success ? 'bg-green-100 text-green-800' : 
-              error ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+              error ? 'bg-red-100 text-red-800' : 
+              results?.summary?.isEmpty ? 'bg-yellow-100 text-yellow-800' :
+              'bg-blue-100 text-blue-800'
             }`}>
               <p className="text-sm font-medium">{statusMessage}</p>
             </div>
@@ -262,7 +303,25 @@ const CodeEditor = () => {
             </div>
           )}
           
-          {results && (
+          {/* Code analysis section - show even for empty code */}
+          {codeAnalysis && (
+            <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded">
+              <p className="text-xs font-medium text-blue-800 mb-1">Code Analysis:</p>
+              <ul className="text-xs text-blue-700 space-y-1">
+                {codeAnalysis.timeComplexity && (
+                  <li>Time Complexity: {codeAnalysis.timeComplexity}</li>
+                )}
+                {codeAnalysis.spaceComplexity && (
+                  <li>Space Complexity: {codeAnalysis.spaceComplexity}</li>
+                )}
+                {codeAnalysis.feedback && (
+                  <li className="text-blue-800">{codeAnalysis.feedback}</li>
+                )}
+              </ul>
+            </div>
+          )}
+          
+          {results && !results.summary.isEmpty && (
             <div className="text-xs space-y-2">
               {/* Just show summary for passing tests */}
               {results.passingTests.length > 0 && (
@@ -284,12 +343,15 @@ const CodeEditor = () => {
                 </div>
               ))}
               
-              {/* Optimization hint for two-sum */}
-              {results.failingTests.length > 0 && results.summary.usesOptimalSolution === false && (
+              {/* Specific issues identified */}
+              {codeAnalysis && codeAnalysis.specificIssues && codeAnalysis.specificIssues.length > 0 && (
                 <div className="p-1.5 bg-yellow-50 border border-yellow-100 rounded">
-                  <span className="font-medium text-yellow-700">
-                    Hint: Consider using a HashMap for better performance.
-                  </span>
+                  <span className="font-medium text-yellow-700">Issues identified:</span>
+                  <ul className="ml-4 list-disc text-yellow-700 mt-1">
+                    {codeAnalysis.specificIssues.map((issue, idx) => (
+                      <li key={idx}>{issue}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
               
@@ -299,6 +361,15 @@ const CodeEditor = () => {
                   {results.failingTests.length - 2} more failing tests not shown
                 </div>
               )}
+            </div>
+          )}
+          
+          {/* Message for empty code */}
+          {results && results.summary.isEmpty && (
+            <div className="p-1.5 bg-yellow-50 border border-yellow-100 rounded">
+              <span className="font-medium text-yellow-700">
+                You need to implement a solution to this problem. The current code is empty or just uses starter code.
+              </span>
             </div>
           )}
         </div>
