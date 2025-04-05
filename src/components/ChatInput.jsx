@@ -1,25 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useInterview } from '../context/InterviewContext';
 import { generateInterviewerResponse } from '../services/groqService';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Mic, Square, Volume2 } from 'lucide-react';
 
 const ChatInput = () => {
   const { state, dispatch } = useInterview();
   const [isSending, setIsSending] = useState(false);
   const [textInput, setTextInput] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcript, setTranscript] = useState('');
   const [error, setError] = useState(null);
   const [testResultsProcessed, setTestResultsProcessed] = useState(false);
+  
+  // Refs
   const textInputRef = useRef(null);
   const timeoutRef = useRef(null);
   const lastTestResultsRef = useRef(null);
   const aiResponseTimeoutRef = useRef(null);
+  const speechRecognitionRef = useRef(null);
   
-  // Send initial greeting on first load
+  // Initialize speech recognition
   useEffect(() => {
-    const shouldSendGreeting = !state.messages || state.messages.length === 0;
-    if (shouldSendGreeting) {
-      setTimeout(() => sendInitialGreeting(), 800);
-    }
+    initializeSpeechRecognition();
     
     return () => {
       if (timeoutRef.current) {
@@ -28,7 +30,120 @@ const ChatInput = () => {
       if (aiResponseTimeoutRef.current) {
         clearTimeout(aiResponseTimeoutRef.current);
       }
+      stopRecording();
     };
+  }, []);
+  
+  // Initialize speech recognition
+  const initializeSpeechRecognition = () => {
+    if (!('webkitSpeechRecognition' in window)) {
+      console.error('Speech recognition not supported in this browser');
+      return;
+    }
+    
+    const SpeechRecognition = window.webkitSpeechRecognition;
+    speechRecognitionRef.current = new SpeechRecognition();
+    speechRecognitionRef.current.continuous = true;
+    speechRecognitionRef.current.interimResults = true;
+    
+    // Configure for efficiency
+    speechRecognitionRef.current.lang = 'en-US';
+    speechRecognitionRef.current.maxAlternatives = 1;
+    
+    speechRecognitionRef.current.onresult = (event) => {
+      // Get combined transcripts
+      let interimTranscript = '';
+      let finalTranscript = '';
+      
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+      
+      // Only update if we have content
+      if (finalTranscript || interimTranscript) {
+        setTranscript(finalTranscript || interimTranscript);
+        
+        // If we got a final transcript and it's a meaningful length, update the input
+        if (finalTranscript && finalTranscript.length > 3) {
+          setTextInput(prevInput => {
+            const newInput = prevInput ? `${prevInput} ${finalTranscript}` : finalTranscript;
+            return newInput;
+          });
+        }
+      }
+    };
+    
+    speechRecognitionRef.current.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      if (event.error === 'no-speech') {
+        // This is common and not a critical error
+        return;
+      }
+      setError(`Speech recognition error: ${event.error}`);
+      setIsRecording(false);
+    };
+    
+    speechRecognitionRef.current.onend = () => {
+      // Only reset recording state if we weren't manually stopping
+      if (isRecording) {
+        // Try to restart if it stopped unexpectedly
+        try {
+          speechRecognitionRef.current.start();
+        } catch (e) {
+          console.error('Could not restart speech recognition:', e);
+          setIsRecording(false);
+        }
+      }
+    };
+  };
+  
+  // Start voice recording
+  const startRecording = async () => {
+    if (!speechRecognitionRef.current) {
+      initializeSpeechRecognition();
+    }
+    
+    if (!speechRecognitionRef.current) {
+      setError('Speech recognition not available in your browser');
+      return;
+    }
+    
+    try {
+      // Clear existing transcript
+      setTranscript('');
+      
+      // Start recognition
+      speechRecognitionRef.current.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      setError('Could not start speech recognition');
+    }
+  };
+  
+  // Stop voice recording
+  const stopRecording = () => {
+    if (speechRecognitionRef.current && isRecording) {
+      try {
+        speechRecognitionRef.current.stop();
+      } catch (error) {
+        console.error('Error stopping recording:', error);
+      }
+      setIsRecording(false);
+    }
+  };
+  
+  // Send initial greeting on first load
+  useEffect(() => {
+    const shouldSendGreeting = !state.messages || state.messages.length === 0;
+    if (shouldSendGreeting) {
+      setTimeout(() => sendInitialGreeting(), 800);
+    }
   }, []);
   
   // Monitor test results and trigger AI response with debounce
@@ -120,12 +235,14 @@ const ChatInput = () => {
       if (testResultSummary) {
         const totalTests = testResultSummary.totalTests;
         const passing = testResultSummary.passing;
-        const problemId = state.testResults.problemId;
+        const codeIsEmpty = !state.currentCode || state.currentCode.trim().length < 30;
         
-        if (testResultSummary.success) {
-          promptMessage = `My solution for the ${problemId} problem passed all ${totalTests} test cases. Is this optimal? Any improvements?`;
+        if (codeIsEmpty) {
+          promptMessage = "I haven't implemented a solution yet. Can you give me some hints to get started?";
+        } else if (testResultSummary.success) {
+          promptMessage = `My solution passed all ${totalTests} test cases. Is this optimal? Any improvements?`;
         } else {
-          promptMessage = `My solution for the ${problemId} problem passed ${passing} out of ${totalTests} test cases. What's wrong with my approach?`;
+          promptMessage = `My solution passed ${passing} out of ${totalTests} test cases. What's wrong with my approach?`;
         }
       }
       
@@ -173,7 +290,13 @@ const ChatInput = () => {
   const sendTextInput = async (event) => {
     if (event) event.preventDefault();
     
+    // Don't proceed if empty input or already sending
     if (!textInput.trim() || isSending) return;
+    
+    // Stop recording if active
+    if (isRecording) {
+      stopRecording();
+    }
     
     setIsSending(true);
     setError(null);
@@ -189,6 +312,7 @@ const ChatInput = () => {
     
     const userMessage = textInput;
     setTextInput(''); // Clear input right away
+    setTranscript(''); // Clear any transcript
     
     try {
       // Set up a timeout to avoid hanging forever
@@ -257,7 +381,18 @@ const ChatInput = () => {
         </div>
       )}
       
-      {/* Text input form */}
+      {/* Speech transcript (only show when recording is active) */}
+      {isRecording && transcript && (
+        <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200 max-w-xl mx-auto">
+          <div className="flex items-center text-xs text-blue-600 mb-1">
+            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse mr-2"></div>
+            <span>Listening...</span>
+          </div>
+          <p className="text-sm text-gray-800">{transcript}</p>
+        </div>
+      )}
+      
+      {/* Text input form with voice button */}
       <form onSubmit={sendTextInput} className="mb-4 max-w-xl mx-auto">
         <div className="flex rounded-lg overflow-hidden border border-gray-300 shadow-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
           <input
@@ -265,11 +400,26 @@ const ChatInput = () => {
             ref={textInputRef}
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
-            placeholder="Type your response here..."
+            placeholder={isRecording ? "Listening..." : "Type or speak your response..."}
             className="flex-1 p-3 outline-none text-sm"
             disabled={isSending}
-            autoFocus
           />
+          
+          {/* Voice recording button */}
+          <button
+            type="button"
+            onClick={isRecording ? stopRecording : startRecording}
+            className={`px-3 flex items-center justify-center transition-colors ${
+              isRecording 
+                ? 'bg-red-500 text-white hover:bg-red-600' 
+                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+            }`}
+            disabled={isSending}
+          >
+            {isRecording ? <Square size={18} /> : <Mic size={18} />}
+          </button>
+          
+          {/* Send button */}
           <button
             type="submit"
             disabled={!textInput.trim() || isSending}
