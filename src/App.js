@@ -5,6 +5,7 @@ import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import ProblemList from './pages/ProblemList';
 import InterviewPage from './pages/InterviewPage';
+import ResumeBuilder from './components/ResumeBuilder';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/problems" element={<ProblemList />} />
             <Route path="/interview/:problemId" element={<InterviewPage />} />
+            <Route path="/resume" element={<ResumeBuilder />} />
           </Routes>
         </div>
       </InterviewProvider>

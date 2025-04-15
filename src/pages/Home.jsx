@@ -28,9 +28,12 @@ const Home = () => {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-2xl font-semibold mb-4">Resume Builder</h2>
           <p>Create an ATS-friendly professional resume</p>
-          <button className="mt-4 bg-purple-500 text-white py-2 px-4 rounded hover:bg-purple-600">
-            Coming Soon
-          </button>
+          <Link 
+            to="/resume" 
+            className="mt-4 block bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+          >
+            Start Building
+          </Link>
         </div>
       </div>
     </div>
