@@ -11,8 +11,8 @@ const Home = () => {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-2xl font-semibold mb-4">Technical Interviews</h2>
           <p>Practice DSA problems with AI-guided interviews</p>
-          <Link 
-            to="/problems" 
+          <Link
+            to="/problems"
             className="mt-4 block bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
           >
             Start Practicing
@@ -28,13 +28,24 @@ const Home = () => {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-2xl font-semibold mb-4">Resume Builder</h2>
           <p>Create an ATS-friendly professional resume</p>
-          <Link 
-            to="/resume" 
+          <Link
+            to="/resume"
             className="mt-4 block bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
           >
             Start Building
           </Link>
         </div>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-2xl font-semibold mb-4">Cover Letter Generator</h2>
+          <p>Create tailored, professional cover letters using your resume and job description</p>
+          <Link
+            to="/coverletter"
+            className="mt-4 block bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+          >
+            Start Generating
+          </Link>
+        </div>
+
       </div>
     </div>
   );
