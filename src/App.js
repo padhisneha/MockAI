@@ -7,6 +7,7 @@ import ProblemList from './pages/ProblemList';
 import InterviewPage from './pages/InterviewPage';
 import ResumeBuilder from './components/ResumeBuilder';
 import CoverLetterGenerator from './components/CoverLetterGenerator';
+import BehaviouralInterview from './components/BehaviouralInterview';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
             <Route path="/interview/:problemId" element={<InterviewPage />} />
             <Route path="/resume" element={<ResumeBuilder />} />
             <Route path="/coverletter" element={<CoverLetterGenerator />} />
+            <Route path="/behaviouralinterview" element={<BehaviouralInterview />} />
           </Routes>
         </div>
       </InterviewProvider>

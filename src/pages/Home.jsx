@@ -78,10 +78,12 @@ const Home = () => {
               </div>
               <h3 className="text-2xl font-semibold mb-3">Behavioral Interviews</h3>
               <p className="text-gray-600 mb-5">Prepare compelling answers for soft skills and scenario-based questions.</p>
-              <span className="inline-flex items-center text-green-600 font-medium">
-                Coming Soon
-                <FaStar className="ml-1 text-yellow-500" />
-              </span>
+              <Link
+                to="/behaviouralinterview"
+                className="inline-block text-green-600 font-medium hover:text-green-800"
+              >
+                Start Practicing →
+              </Link>
             </div>
 
             {/* Resume Builder */}
