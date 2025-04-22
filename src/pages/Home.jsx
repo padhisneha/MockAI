@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FaCode, FaUserTie, FaFileAlt, FaEnvelope, FaStar, FaUsers, FaLaptopCode } from 'react-icons/fa';
 
 const Home = () => {
+  
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       {/* Hero Section */}
