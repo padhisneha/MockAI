@@ -65,7 +65,7 @@ const Navbar = () => {
               Problems
             </Link>
 
-            <Link
+            {/* <Link
               to="/mock-interviews"
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isActive('/mock-interviews')
                   ? isScrolled ? 'bg-blue-100 text-blue-700' : 'bg-white bg-opacity-20 text-white'
@@ -73,16 +73,16 @@ const Navbar = () => {
                 }`}
             >
               Mock Interviews
-            </Link>
+            </Link> */}
 
-            <button
+            {/* <button
               className={`ml-4 px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isScrolled
                   ? 'bg-blue-600 text-white hover:bg-blue-700'
                   : 'bg-white text-blue-700 hover:bg-blue-50'
                 }`}
             >
               Sign In
-            </button>
+            </button> */}
           </div>
         </div>
       </div>

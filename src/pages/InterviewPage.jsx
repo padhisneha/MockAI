@@ -7,6 +7,45 @@ import ChatInput from '../components/ChatInput';
 import ProblemDescription from '../components/ProblemDescription';
 import VideoChat from '../components/VideoChat';
 
+// Array of different feedback options
+const INTERVIEW_FEEDBACK = [
+  {
+    rating: 4.2,
+    summary: "Strong problem-solving approach with good communication",
+    strengths: ["Clear explanation of thought process", "Efficient solution approach", "Good code organization"],
+    improvements: ["Consider discussing time complexity more explicitly", "Could explore edge cases further"],
+    details: "You demonstrated strong technical skills and methodical problem-solving. Your approach was structured and you communicated your thought process well. The solution was implemented efficiently with good attention to coding standards. For future interviews, try to be more explicit about the time and space complexity analysis, and dedicate more time to exploring potential edge cases."
+  },
+  {
+    rating: 3.8,
+    summary: "Good technical foundation with areas to improve in explanation",
+    strengths: ["Correct solution implementation", "Handled feedback well", "Good knowledge of data structures"],
+    improvements: ["Work on explaining approach before coding", "More verbal communication throughout"],
+    details: "Your technical skills are solid and you implemented a working solution. You showed good knowledge of relevant data structures and algorithms. To improve, focus on articulating your approach clearly before diving into code. Some interviewers will want to hear your thought process verbalized step by step, even if your code is correct."
+  },
+  {
+    rating: 4.5,
+    summary: "Excellent communication with strong problem-solving skills",
+    strengths: ["Very clear explanations", "Optimized solution", "Excellent handling of edge cases"],
+    improvements: ["Initial approach could be more efficient", "Consider more test cases"],
+    details: "You excelled in this interview with exceptional communication skills and strong problem-solving abilities. You explained your thought process clearly and arrived at an optimized solution. Your handling of edge cases was thorough. For even better performance, try to identify the most efficient approach faster and consider a broader range of test cases to validate your solution."
+  },
+  {
+    rating: 3.5,
+    summary: "Correct solution with room for improvement in approach",
+    strengths: ["Reached a working solution", "Good coding style", "Asked clarifying questions"],
+    improvements: ["Consider alternative algorithms", "More systematic debugging", "Improve time management"],
+    details: "You successfully solved the problem with a working implementation and demonstrated good coding practices. Your questions showed good understanding of the problem requirements. To improve, explore multiple possible algorithms before deciding on an approach, practice more systematic debugging techniques, and manage your time to ensure you can fully complete and test your solution."
+  },
+  {
+    rating: 4.0,
+    summary: "Strong technical skills with methodical approach",
+    strengths: ["Well-structured code", "Good algorithm selection", "Clear variable naming"],
+    improvements: ["Explain trade-offs between approaches", "More confidence in communication"],
+    details: "You demonstrated strong technical skills with a methodical approach to the problem. Your code was well-structured with appropriate algorithm selection and clear variable naming. To further improve, practice articulating the trade-offs between different approaches and work on your confidence when communicating complex ideas. Overall, this was a solid performance that would likely advance you in many interview processes."
+  }
+];
+
 const InterviewPage = () => {
   const { problemId } = useParams();
   const { state, dispatch } = useInterview();
@@ -14,6 +53,8 @@ const InterviewPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('video'); // 'video' or 'transcript'
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   useEffect(() => {
     const initializeProblem = () => {
@@ -42,6 +83,18 @@ const InterviewPage = () => {
       dispatch({ type: 'RESET_STATE' });
     };
   }, [problemId, dispatch, navigate]);
+
+  const handleExitInterview = () => {
+    // Select a random feedback from the array
+    const randomFeedback = INTERVIEW_FEEDBACK[Math.floor(Math.random() * INTERVIEW_FEEDBACK.length)];
+    setFeedback(randomFeedback);
+    setShowFeedback(true);
+  };
+
+  const handleCloseFeedback = () => {
+    setShowFeedback(false);
+    navigate('/problems');
+  };
 
   if (loading) {
     return (
@@ -105,7 +158,7 @@ const InterviewPage = () => {
               </div>
             </div>
             <button
-              onClick={() => navigate('/problems')}
+              onClick={handleExitInterview}
               className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-3 py-1 rounded text-sm transition-colors"
             >
               Exit Interview
@@ -218,6 +271,59 @@ const InterviewPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Feedback Modal */}
+      {showFeedback && feedback && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-start">
+                <h2 className="text-2xl font-bold text-gray-800">Interview Feedback</h2>
+                <div className="flex items-center">
+                  <div className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
+                    <span className="font-bold text-lg">{feedback.rating}</span>
+                    <span className="ml-1">/5</span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-lg font-medium mt-4 text-gray-700">{feedback.summary}</p>
+              
+              <div className="mt-6">
+                <h3 className="font-medium text-gray-800 mb-2">Strengths</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  {feedback.strengths.map((strength, index) => (
+                    <li key={index} className="text-gray-700">{strength}</li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div className="mt-4">
+                <h3 className="font-medium text-gray-800 mb-2">Areas for Improvement</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  {feedback.improvements.map((improvement, index) => (
+                    <li key={index} className="text-gray-700">{improvement}</li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div className="mt-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h3 className="font-medium text-gray-800 mb-2">Detailed Feedback</h3>
+                <p className="text-gray-700">{feedback.details}</p>
+              </div>
+              
+              <div className="mt-8 flex justify-center">
+                <button
+                  onClick={handleCloseFeedback}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Return to Problems
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

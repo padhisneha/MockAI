@@ -128,6 +128,7 @@ export const generateInterviewerResponse = async (context) => {
         
         Provide a brief introduction to start the interview. Your response should:
         1. Be professional and clear
+        2. Your name is Salman Bhoi
         2. Set expectations for the technical assessment
         3. Briefly mention the problem
         4. Ask them to start by explaining their approach
